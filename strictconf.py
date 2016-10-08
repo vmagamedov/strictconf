@@ -1,8 +1,8 @@
-import codecs
 import typing
-from collections import namedtuple
+import codecs
 
-import collections
+from contextlib import contextmanager
+from collections import namedtuple
 
 
 def with_metaclass(meta, *bases):
@@ -84,53 +84,82 @@ class Compose(with_metaclass(ComposeMeta, ComposeBase)):
 
 class TypeChecker(object):
 
-    def __init__(self, value):
+    def __init__(self, ctx, value, errors):
+        self.ctx = ctx
         self.stack = [value]
+        self.errors = errors
         self.path = []
 
     def visit(self, type_):
-        assert isinstance(type_, typing.TypingMeta)
-        method_name = 'visit_{}'.format(type_.__name__)
-        getattr(self, method_name, self.visit_unknown)(type_)
+        value = self.stack[-1]
+        if not isinstance(value, type_):
+            self.fail(type_, value)
+        else:
+            if isinstance(type_, typing.TypingMeta):
+                method_name = 'visit_{}'.format(type_.__name__)
+                visit_method = getattr(self, method_name, self.not_implemented)
+                visit_method(type_, value)
 
-    def visit_unknown(self, type_):
+    def not_implemented(self, type_):
         raise TypeError('Type check is not implemented for this type: {!r}'
                         .format(type_))
 
-    def fail(self, type_):
-        pass
+    @contextmanager
+    def push(self, value, path_element):
+        self.path.append(path_element)
+        self.stack.append(value)
+        try:
+            yield
+        finally:
+            self.path.pop()
+            self.stack.pop()
 
-    def visit_List(self, type_):
-        value = self.stack[-1]
-        if not isinstance(value, type_):
-            return self.fail(type_)
+    def fail(self, type_, value):
+        provided = _type_repr(type(value))
+        expected = _type_repr(type_)
+        msg = '"{}" instead of "{}"'.format(provided, expected)
+        if self.path:
+            msg = '{} - {}'.format(''.join(self.path), msg)
+        self.errors.append(Error(self.ctx, msg))
 
+    def visit_List(self, type_, value):
         item_type, = type_.__parameters__
         for i, item in enumerate(value):
-            self.path.append('[{}]'.format(i))
-            self.stack.append(item)
-            try:
+            with self.push(item, '[{!r}]'.format(i)):
                 self.visit(item_type)
-            finally:
-                self.path.pop()
-                self.stack.pop()
+
+    def visit_Dict(self, type_, value):
+        key_type, val_type = type_.__parameters__
+        for key, val in value.items():
+            with self.push(key, '[{!r}]'.format(key)):
+                self.visit(key_type)
+            with self.push(val, '[{!r}]'.format(key)):
+                self.visit(val_type)
 
 
-def _validate_type(ctx, value, type_, errors):
+def _type_repr(t):
+    if getattr(t, '__parameters__', None):
+        params = ', '.join(_type_repr(p) for p in t.__parameters__)
+        return '{}[{}]'.format(t.__name__, params)
+    else:
+        return t.__name__
+
+
+def validate_type(ctx, value, type_, errors):
     if isinstance(value, type_):
         if isinstance(type_, typing.TypingMeta):
-            raise NotImplementedError
+            TypeChecker(ctx, value, errors).visit(type_)
         return
+    else:
+        message = ('"{}" instead of "{}"'
+                   .format(_type_repr(type(value)), _type_repr(type_)))
+        errors.append(Error(ctx, message))
 
-    left, right = type(value).__name__, type_.__name__
-    message = '"{}" instead of "{}"'.format(left, right)
-    errors.append(Error(ctx, message))
 
-
-def _validate_section(obj, value, name, errors):
+def validate_section(obj, value, name, errors):
     assert isinstance(obj, Section), repr(type(obj))
     ctx = Context(name, None)
-    _validate_type(ctx, value, dict, errors)
+    validate_type(ctx, value, dict, errors)
     if not errors:
         for key in obj.__section_keys__.values():
             ctx = Context(name, key.name)
@@ -138,13 +167,13 @@ def _validate_section(obj, value, name, errors):
                 errors.append(Error(ctx, 'missing key'))
             else:
                 key_value = value[key.name]
-                _validate_type(ctx, key_value, key.type, errors)
+                validate_type(ctx, key_value, key.type, errors)
 
 
-def _validate_config(obj, value, variant, errors):
+def validate_config(obj, value, variant, errors):
     assert isinstance(obj, Compose), repr(type(obj))
     ctx = Context(None, None)
-    _validate_type(ctx, value, dict, errors)
+    validate_type(ctx, value, dict, errors)
     if not errors:
         key = 'compose.{}'.format(variant)
         if key not in value:
@@ -152,7 +181,7 @@ def _validate_config(obj, value, variant, errors):
         else:
             ctx = Context(key, None)
             compose_section = value[key]
-            _validate_type(ctx, compose_section, dict, errors)
+            validate_type(ctx, compose_section, dict, errors)
             if not errors:
                 for section in obj.__sections__.values():
                     ctx = Context(key, section.__section_name__)
@@ -160,7 +189,7 @@ def _validate_config(obj, value, variant, errors):
                         errors.append(Error(ctx, 'missing key'))
                     else:
                         section_variant = compose_section[section.__section_name__]
-                        _validate_type(ctx, section_variant, str, errors)
+                        validate_type(ctx, section_variant, str, errors)
                         if not errors:
                             full_section_name = '.'.join((section.__section_name__,
                                                           section_variant))
@@ -169,12 +198,12 @@ def _validate_config(obj, value, variant, errors):
                                 errors.append(Error(ctx, msg))
                             else:
                                 section_value = value[full_section_name]
-                                _validate_section(section, section_value, full_section_name, errors)
+                                validate_section(section, section_value, full_section_name, errors)
 
 
 def validate(conf, data, variant):
     errors = []
-    _validate_config(conf, data, variant, errors)
+    validate_config(conf, data, variant, errors)
     return errors
 
 
