@@ -82,6 +82,10 @@ class Compose(with_metaclass(ComposeMeta, ComposeBase)):
     pass
 
 
+def _params(type_, default=None):
+    return getattr(type_, '__args__', getattr(type_, '__parameters__', default))
+
+
 class TypeChecker(object):
 
     def __init__(self, ctx, value, errors):
@@ -123,13 +127,13 @@ class TypeChecker(object):
         self.errors.append(Error(self.ctx, msg))
 
     def visit_List(self, type_, value):
-        item_type, = type_.__parameters__
+        item_type, = _params(type_)
         for i, item in enumerate(value):
             with self.push(item, '[{!r}]'.format(i)):
                 self.visit(item_type)
 
     def visit_Dict(self, type_, value):
-        key_type, val_type = type_.__parameters__
+        key_type, val_type = _params(type_)
         for key, val in value.items():
             with self.push(key, '[{!r}]'.format(key)):
                 self.visit(key_type)
@@ -138,9 +142,10 @@ class TypeChecker(object):
 
 
 def _type_repr(t):
-    if getattr(t, '__parameters__', None):
-        params = ', '.join(_type_repr(p) for p in t.__parameters__)
-        return '{}[{}]'.format(t.__name__, params)
+    params = _params(t)
+    if params is not None:
+        params_repr = ', '.join(_type_repr(p) for p in params)
+        return '{}[{}]'.format(t.__name__, params_repr)
     else:
         return t.__name__
 
@@ -174,31 +179,39 @@ def validate_config(obj, value, variant, errors):
     assert isinstance(obj, Compose), repr(type(obj))
     ctx = Context(None, None)
     validate_type(ctx, value, dict, errors)
-    if not errors:
-        key = 'compose.{}'.format(variant)
-        if key not in value:
-            errors.append(Error(Context(key, None), 'missing section'))
+    if errors:
+        return
+
+    key = 'compose.{}'.format(variant)
+    if key not in value:
+        errors.append(Error(Context(key, None), 'missing section'))
+        return
+
+    ctx = Context(key, None)
+    compose_section = value[key]
+    validate_type(ctx, compose_section, dict, errors)
+    if errors:
+        return
+
+    for section in obj.__sections__.values():
+        ctx = Context(key, section.__section_name__)
+        if section.__section_name__ not in compose_section:
+            errors.append(Error(ctx, 'missing key'))
+            continue
+
+        section_variant = compose_section[section.__section_name__]
+        validate_type(ctx, section_variant, str, errors)
+        if errors:
+            continue
+
+        full_section_name = '.'.join((section.__section_name__,
+                                      section_variant))
+        if full_section_name not in value:
+            msg = '"{}" not found'.format(full_section_name)
+            errors.append(Error(ctx, msg))
         else:
-            ctx = Context(key, None)
-            compose_section = value[key]
-            validate_type(ctx, compose_section, dict, errors)
-            if not errors:
-                for section in obj.__sections__.values():
-                    ctx = Context(key, section.__section_name__)
-                    if section.__section_name__ not in compose_section:
-                        errors.append(Error(ctx, 'missing key'))
-                    else:
-                        section_variant = compose_section[section.__section_name__]
-                        validate_type(ctx, section_variant, str, errors)
-                        if not errors:
-                            full_section_name = '.'.join((section.__section_name__,
-                                                          section_variant))
-                            if full_section_name not in value:
-                                msg = '"{}" not found'.format(full_section_name)
-                                errors.append(Error(ctx, msg))
-                            else:
-                                section_value = value[full_section_name]
-                                validate_section(section, section_value, full_section_name, errors)
+            section_value = value[full_section_name]
+            validate_section(section, section_value, full_section_name, errors)
 
 
 def validate(conf, data, variant):
