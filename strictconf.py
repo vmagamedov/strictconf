@@ -1,8 +1,18 @@
+import sys
 import typing
 import codecs
 
 from contextlib import contextmanager
 from collections import namedtuple
+
+
+PY3 = sys.version_info[0] == 3
+
+if PY3:
+    text_type = str
+
+else:
+    text_type = unicode  # noqa
 
 
 def with_metaclass(meta, *bases):
@@ -17,12 +27,6 @@ def with_metaclass(meta, *bases):
     return type.__new__(metaclass, 'temporary_class', (), {})
 
 
-class NotInitialized(object):
-
-    def __get__(self, instance, owner):
-        raise RuntimeError('Config is not initialized')
-
-
 Context = namedtuple('Context', 'section key')
 
 Error = namedtuple('Error', 'context message')
@@ -35,12 +39,14 @@ class Key(object):
         self.type = type_
 
 
-class SectionObject(object):
-    pass
+class NotInitialized(object):
+
+    def __get__(self, instance, owner):
+        raise RuntimeError('Config is not initialized')
 
 
 class SectionBase(object):
-    __section_keys__ = {}
+    __keys__ = {}
 
     def __init__(self, name):
         self.__section_name__ = name
@@ -49,12 +55,15 @@ class SectionBase(object):
 class SectionMeta(type):
 
     def __new__(mcs, name, bases, params):
+        keys = {key: val for key, val in params.items()
+                if isinstance(val, Key)}
         cls = super(SectionMeta, mcs).__new__(mcs, name, bases, params)
-        keys = cls.__section_keys__.copy()
-        for name, value in params.items():
-            if isinstance(value, Key):
-                keys[name] = value
-        cls.__section_keys__ = keys
+        cls.__keys__ = dict(cls.__keys__, **keys)
+
+        not_initialized = NotInitialized()
+        for attr_name in keys:
+            setattr(cls, attr_name, not_initialized)
+
         return cls
 
 
@@ -62,19 +71,33 @@ class Section(with_metaclass(SectionMeta, SectionBase)):
     pass
 
 
+class SectionValue(object):
+
+    def __init__(self, section, value):
+        for attr_name, key in section.__keys__.items():
+            setattr(self, attr_name, value[key.name])
+
+
 class ComposeBase(object):
     __sections__ = {}
+    __initialized = False
+
+    def __init_sections__(self, values):
+        if self.__initialized:
+            raise RuntimeError('Config is already initialized')
+        for attr_name, section in self.__sections__.items():
+            value = values[section.__section_name__]
+            setattr(self, attr_name, SectionValue(section, value))
+        self.__initialized = True
 
 
 class ComposeMeta(type):
 
     def __new__(mcs, name, bases, params):
+        sections = {key: val for key, val in params.items()
+                    if isinstance(val, Section)}
         cls = super(ComposeMeta, mcs).__new__(mcs, name, bases, params)
-        sections = cls.__sections__.copy()
-        for name, value in params.items():
-            if isinstance(value, Section):
-                sections[name] = value
-        cls.__sections__ = sections
+        cls.__sections__ = dict(cls.__sections__, **sections)
         return cls
 
 
@@ -166,7 +189,7 @@ def validate_section(obj, value, name, errors):
     ctx = Context(name, None)
     validate_type(ctx, value, dict, errors)
     if not errors:
-        for key in obj.__section_keys__.values():
+        for key in obj.__keys__.values():
             ctx = Context(name, key.name)
             if key.name not in value:
                 errors.append(Error(ctx, 'missing key'))
@@ -182,7 +205,7 @@ def validate_config(obj, value, variant, errors):
     if errors:
         return
 
-    key = 'compose.{}'.format(variant)
+    key = text_type('compose.{}').format(variant)
     if key not in value:
         errors.append(Error(Context(key, None), 'missing section'))
         return
@@ -200,7 +223,7 @@ def validate_config(obj, value, variant, errors):
             continue
 
         section_variant = compose_section[section.__section_name__]
-        validate_type(ctx, section_variant, str, errors)
+        validate_type(ctx, section_variant, text_type, errors)
         if errors:
             continue
 
@@ -221,7 +244,7 @@ def validate(conf, data, variant):
 
 
 def compose(data, variant):
-    entrypoint = 'compose.{}'.format(variant)
+    entrypoint = text_type('compose.{}').format(variant)
     compose_config = data[entrypoint]
     compose_result = {}
     for key, value in compose_config.items():
@@ -230,28 +253,28 @@ def compose(data, variant):
     return compose_result
 
 
-# def init(conf, variant, data):
-#     composed_data = compose(data, variant)
-#     errors = validate(conf, composed_data)
-#     if errors:
-#         raise TypeError(repr(errors))  # FIXME
-#     else:
-#         conf.__data__ = compose(data, variant)
+def init_from_data(conf, data, variant):
+    errors = validate(conf, data, variant)
+    if errors:
+        raise TypeError(repr(errors))  # FIXME
+    else:
+        composed_data = compose(data, variant)
+        conf.__init_sections__(composed_data)
 
 
-def read_toml(file_name, variant):
+def init_from_toml(conf, file_name, variant):
     import toml
 
-    with codecs.open(file_name, 'rb', 'utf-8') as f:
+    with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
     data = toml.loads(content)
-    return compose(data, variant)
+    init_from_data(conf, data, variant)
 
 
-def read_yaml(file_name, variant):
+def init_from_yaml(conf, file_name, variant):
     import yaml
 
-    with codecs.open(file_name, 'rb', 'utf-8') as f:
+    with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
     data = yaml.load(content)
-    return compose(data, variant)
+    init_from_data(conf, data, variant)

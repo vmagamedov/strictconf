@@ -1,14 +1,14 @@
 StrictConf
 ==========
 
-Define composable config:
+Define composable and typed config:
 
 .. code-block:: python
 
     from strictconf import Compose, Section, Key
 
     class Main(Section):
-        foo = Key('foo', int)  # type: int
+        hours = Key('hours', int)  # type: int
 
     class Config(Compose):
         main = Main('main')
@@ -16,30 +16,66 @@ Define composable config:
     conf = Config()
 
 
-Load using yaml format:
+Load using YAML_ format:
+
+.. code-block:: yaml
+
+    main.earth:
+      hours: 24
+
+    compose.default:
+      main: earth
 
 .. code-block:: python
 
-    import yaml
+    from strictconf import init_from_yaml
 
-    with open('config.yaml') as f:
-        init(conf, 'default', yaml.load(f))
+    init_from_yaml(conf, 'config.yaml', 'default')
 
-Or load using toml format:
+
+Load using TOML_ format:
+
+.. code-block:: toml
+
+    ["main.earth"]
+    hours = 24
+
+    ["compose.default"]
+    main = "earth"
 
 .. code-block:: python
 
-    import toml
+    from strictconf import init_from_toml
 
-    with open('config.toml') as f:
-        init(conf, 'default', toml.load(f))
+    init_from_toml(conf, 'config.toml', 'default')
 
-Or use any other suitable format.
+
+Or use any other suitable format and init with raw data:
+
+.. code-block:: python
+
+    from strictconf import init_from_data
+
+    data = {
+        'main.earth': {
+            'hours': 24,
+        },
+        'compose.default': {
+            'main': 'earth',
+        },
+    }
+
+    init_from_data(conf, data, 'default')
+
 
 Then use it in your application:
 
 .. code-block:: python
 
-    print(conf.main.foo + 1)
+    >>> print('Seconds: {}'.format(conf.main.hours * 60 * 60))
+    Seconds: 86400
 
-And be sure that "foo" key exists and it's type is "int".
+And be sure that "hours" key exists and it's type is ``int``.
+
+.. _YAML: http://yaml.org
+.. _TOML: https://github.com/toml-lang/toml
