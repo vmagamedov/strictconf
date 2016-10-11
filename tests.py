@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 from typing import List, Dict
+from textwrap import dedent
 from tempfile import NamedTemporaryFile
 
 import pytest
@@ -180,38 +181,32 @@ def test_init():
 
 
 def test_init_from_toml():
-    import toml
-
     conf = PinyonConfig()
-    data = {
-        'parma.chu': {
-            'chatty': 234,
-        },
-        'compose.infest': {
-            'parma': 'chu',
-        }
-    }
+    content = dedent(text_type("""
+    ["parma.chu"]
+    chatty = 234
+
+    ["compose.infest"]
+    parma = "chu"
+    """))
     with NamedTemporaryFile() as tmp:
-        tmp.write(toml.dumps(data).encode('utf-8'))
+        tmp.write(content.encode('utf-8'))
         tmp.flush()
         init_from_toml(conf, tmp.name, 'infest')
     assert conf.asor.culex == 234
 
 
 def test_init_from_yaml():
-    import yaml
-
     conf = PinyonConfig()
-    data = {
-        'parma.boob': {
-            'chatty': 345,
-        },
-        'compose.diorite': {
-            'parma': 'boob',
-        }
-    }
+    content = dedent(text_type("""
+    parma.boob:
+      chatty: 345
+
+    compose.diorite:
+      parma: "boob"
+    """))
     with NamedTemporaryFile() as tmp:
-        tmp.write(yaml.dump(data).encode('utf-8'))
+        tmp.write(content.encode('utf-8'))
         tmp.flush()
         init_from_yaml(conf, tmp.name, 'diorite')
     assert conf.asor.culex == 345
