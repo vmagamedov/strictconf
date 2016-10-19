@@ -52,7 +52,7 @@ class NotInitialized(object):
 
 
 class SectionBase(object):
-    __keys__ = {}
+    __keys__ = {}  # type: typing.Dict[str, Key]
 
     def __init__(self, name):
         self.__section_name__ = name
@@ -85,7 +85,7 @@ class SectionValue(object):
 
 
 class ComposeBase(object):
-    __sections__ = {}
+    __sections__ = {}  # type: typing.Dict[str, Section]
     __initialized = False
 
     def __init_sections__(self, values):
@@ -269,7 +269,7 @@ def init_from_data(conf, data, variant):
 
 
 def init_from_toml(conf, file_name, variant):
-    import toml
+    import toml  # type: ignore
 
     with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
@@ -278,7 +278,7 @@ def init_from_toml(conf, file_name, variant):
 
 
 def init_from_yaml(conf, file_name, variant):
-    import yaml
+    import yaml  # type: ignore
 
     with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
