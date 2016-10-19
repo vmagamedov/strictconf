@@ -1,6 +1,14 @@
 StrictConf
 ==========
 
+Configuration library with type-checking and composition instead of inheritance
+
+Install:
+
+.. code-block:: shell
+
+  $ pip install strictconf
+
 Define composable and typed config:
 
 .. code-block:: python
