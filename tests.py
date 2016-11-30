@@ -1,6 +1,6 @@
 from __future__ import unicode_literals
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from textwrap import dedent
 from tempfile import NamedTemporaryFile
 
@@ -103,6 +103,21 @@ def test_valid_config():
          'compose.bestill': {'parma': 'syst'}},
         [],
     )
+
+
+def test_optional_type():
+    # valid
+    check_type(Optional[int], None, [])
+    check_type(Optional[int], 1, [])
+    check_type(Optional[List[int]], None, [])
+    check_type(Optional[List[int]], [1, 2, 3], [])
+    # invalid
+    check_type(Optional[int], '5', [
+        '"str" instead of "Optional[int]"',
+    ])
+    check_type(Optional[List[int]], [1, 2, '3'], [
+        '[2] - "str" instead of "int"',
+    ])
 
 
 def test_list_type():

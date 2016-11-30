@@ -1,13 +1,11 @@
 import sys
 from setuptools import setup
 
-
 PY35 = sys.version_info >= (3, 5)
-
 
 setup(
     name='StrictConf',
-    version='0.1.1',
+    version='0.1.2',
     description='Configuration library with type-checking',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',

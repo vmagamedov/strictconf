@@ -111,8 +111,31 @@ class Compose(with_metaclass(ComposeMeta, ComposeBase)):
     pass
 
 
-def _params(type_, default=None):
-    return getattr(type_, '__args__', getattr(type_, '__parameters__', default))
+def _type_params(type_):
+    # Py3.4 typing module
+    type_params = getattr(type_, '__args__', None)
+    # Py3.5 typing module
+    type_params = type_.__parameters__ if type_params is None else type_params
+    return type_params
+
+
+def _optional_type_param(type_):
+    assert len(type_.__union_set_params__) == 2 and \
+        type(None) in type_.__union_set_params__, \
+        'Only "Optional" types are supported'
+    return tuple(type_.__union_set_params__ - {type(None)})[0]
+
+
+def _type_repr(t):
+    if isinstance(t, typing.TypingMeta):
+        if isinstance(t, typing.UnionMeta):
+            optional_type_param = _optional_type_param(t)
+            return 'Optional[{}]'.format(_type_repr(optional_type_param))
+        else:
+            params_repr = ', '.join(_type_repr(p) for p in _type_params(t))
+            return '{}[{}]'.format(t.__name__, params_repr)
+    else:
+        return t.__name__
 
 
 class TypeChecker(object):
@@ -125,7 +148,7 @@ class TypeChecker(object):
 
     def visit(self, type_):
         value = self.stack[-1]
-        if not isinstance(value, type_):
+        if not issubclass(type(value), type_):
             self.fail(type_, value)
         else:
             if isinstance(type_, typing.TypingMeta):
@@ -133,7 +156,7 @@ class TypeChecker(object):
                 visit_method = getattr(self, method_name, self.not_implemented)
                 visit_method(type_, value)
 
-    def not_implemented(self, type_):
+    def not_implemented(self, type_, value):
         raise TypeError('Type check is not implemented for this type: {!r}'
                         .format(type_))
 
@@ -155,14 +178,19 @@ class TypeChecker(object):
             msg = '{} - {}'.format(''.join(self.path), msg)
         self.errors.append(Error(self.ctx, msg))
 
+    def visit_Union(self, type_, value):
+        optional_type_param = _optional_type_param(type_)
+        if value is not None:
+            self.visit(optional_type_param)
+
     def visit_List(self, type_, value):
-        item_type, = _params(type_)
+        item_type, = _type_params(type_)
         for i, item in enumerate(value):
             with self.push(item, '[{!r}]'.format(i)):
                 self.visit(item_type)
 
     def visit_Dict(self, type_, value):
-        key_type, val_type = _params(type_)
+        key_type, val_type = _type_params(type_)
         for key, val in value.items():
             with self.push(key, '[{!r}]'.format(key)):
                 self.visit(key_type)
@@ -170,17 +198,8 @@ class TypeChecker(object):
                 self.visit(val_type)
 
 
-def _type_repr(t):
-    params = _params(t)
-    if params is not None:
-        params_repr = ', '.join(_type_repr(p) for p in params)
-        return '{}[{}]'.format(t.__name__, params_repr)
-    else:
-        return t.__name__
-
-
 def validate_type(ctx, value, type_, errors):
-    if isinstance(value, type_):
+    if issubclass(type(value), type_):
         if isinstance(type_, typing.TypingMeta):
             TypeChecker(ctx, value, errors).visit(type_)
         return
