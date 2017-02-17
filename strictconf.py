@@ -223,14 +223,14 @@ def validate_section(obj, value, name, errors):
                 validate_type(ctx, key_value, key.type, errors)
 
 
-def validate_config(obj, value, variant, errors):
+def validate_config(obj, value, variant, sep, errors):
     assert isinstance(obj, Compose), repr(type(obj))
     ctx = Context(None, None)
     validate_type(ctx, value, dict, errors)
     if errors:
         return
 
-    key = text_type('compose.{}').format(variant)
+    key = text_type(sep.join(('compose', variant)))
     if key not in value:
         errors.append(Error(Context(key, None), 'missing section'))
         return
@@ -252,7 +252,7 @@ def validate_config(obj, value, variant, errors):
         if errors:
             continue
 
-        full_section_name = '.'.join((section.__section_name__,
+        full_section_name = sep.join((section.__section_name__,
                                       section_variant))
         if full_section_name not in value:
             msg = '"{}" not found'.format(full_section_name)
@@ -262,44 +262,44 @@ def validate_config(obj, value, variant, errors):
             validate_section(section, section_value, full_section_name, errors)
 
 
-def validate(conf, data, variant):
+def validate(conf, data, variant, sep):
     errors = []
-    validate_config(conf, data, variant, errors)
+    validate_config(conf, data, variant, sep, errors)
     return errors
 
 
-def compose(data, variant):
-    entrypoint = text_type('compose.{}').format(variant)
+def compose(data, variant, sep):
+    entrypoint = text_type(sep.join(('compose', variant)))
     compose_config = data[entrypoint]
     compose_result = {}
     for key, value in compose_config.items():
-        section_name = '{}.{}'.format(key, value)
+        section_name = sep.join((key, value))
         compose_result[key] = data[section_name]
     return compose_result
 
 
-def init_from_data(conf, data, variant):
-    errors = validate(conf, data, variant)
+def init_from_data(conf, data, variant, sep='.'):
+    errors = validate(conf, data, variant, sep)
     if errors:
         raise TypeError(repr(errors))  # FIXME
     else:
-        composed_data = compose(data, variant)
+        composed_data = compose(data, variant, sep)
         conf.__init_sections__(composed_data)
 
 
-def init_from_toml(conf, file_name, variant):
+def init_from_toml(conf, file_name, variant, sep='_'):
     import toml  # type: ignore
 
     with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
     data = toml.loads(content)
-    init_from_data(conf, data, variant)
+    init_from_data(conf, data, variant, sep=sep)
 
 
-def init_from_yaml(conf, file_name, variant):
+def init_from_yaml(conf, file_name, variant, sep='.'):
     import yaml  # type: ignore
 
     with codecs.open(file_name, encoding='utf-8') as f:
         content = f.read()
     data = yaml.load(content)
-    init_from_data(conf, data, variant)
+    init_from_data(conf, data, variant, sep=sep)

@@ -45,10 +45,10 @@ Load using TOML_ format:
 
 .. code-block:: toml
 
-    ["main.earth"]
+    [main_earth]
     hours = 24
 
-    ["compose.default"]
+    [compose_default]
     main = "earth"
 
 .. code-block:: python

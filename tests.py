@@ -26,7 +26,8 @@ def _fix_errors(errors):
 
 
 def check_config(value, errors):
-    assert _fix_errors(validate(PinyonConfig(), value, 'bestill')) == errors
+    conf = PinyonConfig()
+    assert _fix_errors(validate(conf, value, 'bestill', '.')) == errors
 
 
 def check_type(type_, value, messages):
@@ -198,10 +199,10 @@ def test_init():
 def test_init_from_toml():
     conf = PinyonConfig()
     content = dedent(text_type("""
-    ["parma.chu"]
+    [parma_chu]
     chatty = 234
 
-    ["compose.infest"]
+    [compose_infest]
     parma = "chu"
     """))
     with NamedTemporaryFile() as tmp:
