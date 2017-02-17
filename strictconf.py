@@ -38,6 +38,21 @@ Context = namedtuple('Context', 'section key')
 Error = namedtuple('Error', 'context message')
 
 
+class ValidationError(TypeError):
+
+    def __init__(self, message, errors):
+        message += '\n' + '\n'.join(self._iter_errors(errors))
+        super(ValidationError, self).__init__(message)
+
+    def _iter_errors(self, errors):
+        for error in errors:
+            if error.context.key:
+                ctx = '{}[{}]'.format(error.context.section, error.context.key)
+            else:
+                ctx = error.context.section or '<config>'
+            yield ' - {} => {}'.format(ctx, error.message)
+
+
 class Key(object):
 
     def __init__(self, name, type_):
@@ -281,7 +296,7 @@ def compose(data, variant, sep):
 def init_from_data(conf, data, variant, sep='.'):
     errors = validate(conf, data, variant, sep)
     if errors:
-        raise TypeError(repr(errors))  # FIXME
+        raise ValidationError('Configuration is not valid', errors)
     else:
         composed_data = compose(data, variant, sep)
         conf.__init_sections__(composed_data)
