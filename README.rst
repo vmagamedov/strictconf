@@ -9,7 +9,9 @@ Install:
 
   $ pip install strictconf
 
-Define composable and typed config:
+
+Config definition
+~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -24,7 +26,8 @@ Define composable and typed config:
     conf = Config()
 
 
-Load using YAML_ format:
+Init using YAML_ format
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: yaml
 
@@ -36,12 +39,13 @@ Load using YAML_ format:
 
 .. code-block:: python
 
-    from strictconf import init_from_yaml
+    from strictconf.yaml import init
 
-    init_from_yaml(conf, 'config.yaml', 'default')
+    init(conf, ['config.yaml'], 'default')
 
 
-Load using TOML_ format:
+Init using TOML_ format
+~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: toml
 
@@ -53,16 +57,17 @@ Load using TOML_ format:
 
 .. code-block:: python
 
-    from strictconf import init_from_toml
+    from strictconf.toml import init
 
-    init_from_toml(conf, 'config.toml', 'default')
+    init(conf, ['config.toml'], 'default')
 
 
-Or use any other suitable format and init with raw data:
+Init using plain data
+~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
 
-    from strictconf import init_from_data
+    from strictconf.data import init
 
     data = {
         'main.earth': {
@@ -73,10 +78,11 @@ Or use any other suitable format and init with raw data:
         },
     }
 
-    init_from_data(conf, data, 'default')
+    init(conf, data, 'default')
 
 
-Then use it in your application:
+Config usage
+~~~~~~~~~~~~
 
 .. code-block:: python
 

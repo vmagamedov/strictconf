@@ -1,36 +1,10 @@
-import sys
 import typing
-import codecs
 
 from contextlib import contextmanager
 from collections import namedtuple
 
-
-PY3 = sys.version_info[0] == 3
-
-if PY3:
-    text_type = str
-
-    def str_fix(s):
-        return s
-
-else:
-    text_type = unicode  # noqa
-
-    def str_fix(s):
-        return text_type(s) if isinstance(s, str) else s
-
-
-def with_metaclass(meta, *bases):
-    """Create a base class with a metaclass."""
-    # This requires a bit of explanation: the basic idea is to make a dummy
-    # metaclass for one level of class instantiation that replaces itself with
-    # the actual metaclass.
-    class metaclass(meta):
-
-        def __new__(cls, name, this_bases, d):
-            return meta(name, bases, d)
-    return type.__new__(metaclass, 'temporary_class', (), {})
+from .compat import text_type, str_fix
+from .config import Section, Compose
 
 
 Context = namedtuple('Context', 'section key')
@@ -51,79 +25,6 @@ class ValidationError(TypeError):
             else:
                 ctx = error.context.section or '<config>'
             yield ' - {} => {}'.format(ctx, error.message)
-
-
-class Key(object):
-
-    def __init__(self, name, type_):
-        self.name = name
-        self.type = type_
-
-
-class NotInitialized(object):
-
-    def __get__(self, instance, owner):
-        raise RuntimeError('Config is not initialized')
-
-
-class SectionBase(object):
-    __keys__ = {}  # type: typing.Dict[str, Key]
-
-    def __init__(self, name):
-        self.__section_name__ = name
-
-
-class SectionMeta(type):
-
-    def __new__(mcs, name, bases, params):
-        keys = {key: val for key, val in params.items()
-                if isinstance(val, Key)}
-        cls = super(SectionMeta, mcs).__new__(mcs, name, bases, params)
-        cls.__keys__ = dict(cls.__keys__, **keys)
-
-        not_initialized = NotInitialized()
-        for attr_name in keys:
-            setattr(cls, attr_name, not_initialized)
-
-        return cls
-
-
-class Section(with_metaclass(SectionMeta, SectionBase)):
-    pass
-
-
-class SectionValue(object):
-
-    def __init__(self, section, value):
-        for attr_name, key in section.__keys__.items():
-            setattr(self, attr_name, value[key.name])
-
-
-class ComposeBase(object):
-    __sections__ = {}  # type: typing.Dict[str, Section]
-    __initialized = False
-
-    def __init_sections__(self, values):
-        if self.__initialized:
-            raise RuntimeError('Config is already initialized')
-        for attr_name, section in self.__sections__.items():
-            value = values[section.__section_name__]
-            setattr(self, attr_name, SectionValue(section, value))
-        self.__initialized = True
-
-
-class ComposeMeta(type):
-
-    def __new__(mcs, name, bases, params):
-        sections = {key: val for key, val in params.items()
-                    if isinstance(val, Section)}
-        cls = super(ComposeMeta, mcs).__new__(mcs, name, bases, params)
-        cls.__sections__ = dict(cls.__sections__, **sections)
-        return cls
-
-
-class Compose(with_metaclass(ComposeMeta, ComposeBase)):
-    pass
 
 
 def _type_params(type_):
@@ -281,40 +182,3 @@ def validate(conf, data, variant, sep):
     errors = []
     validate_config(conf, data, variant, sep, errors)
     return errors
-
-
-def compose(data, variant, sep):
-    entrypoint = text_type(sep.join(('compose', variant)))
-    compose_config = data[entrypoint]
-    compose_result = {}
-    for key, value in compose_config.items():
-        section_name = sep.join((key, value))
-        compose_result[key] = data[section_name]
-    return compose_result
-
-
-def init_from_data(conf, data, variant, sep='.'):
-    errors = validate(conf, data, variant, sep)
-    if errors:
-        raise ValidationError('Configuration is not valid', errors)
-    else:
-        composed_data = compose(data, variant, sep)
-        conf.__init_sections__(composed_data)
-
-
-def init_from_toml(conf, file_name, variant, sep='_'):
-    import toml  # type: ignore
-
-    with codecs.open(file_name, encoding='utf-8') as f:
-        content = f.read()
-    data = toml.loads(content)
-    init_from_data(conf, data, variant, sep=sep)
-
-
-def init_from_yaml(conf, file_name, variant, sep='.'):
-    import yaml  # type: ignore
-
-    with codecs.open(file_name, encoding='utf-8') as f:
-        content = f.read()
-    data = yaml.load(content)
-    init_from_data(conf, data, variant, sep=sep)

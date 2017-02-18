@@ -6,9 +6,14 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 
-from strictconf import Compose, Section, SectionValue, Key, Error, Context
-from strictconf import text_type, validate, validate_type
-from strictconf import init_from_data, init_from_toml, init_from_yaml
+import strictconf.data
+import strictconf.toml
+import strictconf.yaml
+
+from strictconf import Compose, Section, Key
+from strictconf.config import SectionValue
+from strictconf.compat import text_type
+from strictconf.checker import Error, validate, Context, validate_type
 
 
 class ParmaSection(Section):
@@ -164,7 +169,7 @@ def test_complex_type():
     ])
 
 
-def test_init():
+def test_data_init():
     conf1 = PinyonConfig()
     assert isinstance(conf1.asor, ParmaSection)
 
@@ -180,12 +185,12 @@ def test_init():
             'parma': 'gape',
         }
     }
-    init_from_data(conf1, data, 'bedead')
+    strictconf.data.init(conf1, data, 'bedead')
     assert isinstance(conf1.asor, SectionValue)
     assert conf1.asor.culex == 123
 
     with pytest.raises(RuntimeError) as err:
-        init_from_data(conf1, data, 'bedead')
+        strictconf.data.init(conf1, data, 'bedead')
     err.match('Config is already initialized')
 
     conf2 = PinyonConfig()
@@ -196,7 +201,7 @@ def test_init():
     err.match('Config is not initialized')
 
 
-def test_init_from_toml():
+def test_toml_init():
     conf = PinyonConfig()
     content = dedent(text_type("""
     [parma_chu]
@@ -208,11 +213,11 @@ def test_init_from_toml():
     with NamedTemporaryFile() as tmp:
         tmp.write(content.encode('utf-8'))
         tmp.flush()
-        init_from_toml(conf, tmp.name, 'infest')
+        strictconf.toml.init(conf, [tmp.name], 'infest')
     assert conf.asor.culex == 234
 
 
-def test_init_from_yaml():
+def test_yaml_init():
     conf = PinyonConfig()
     content = dedent(text_type("""
     parma.boob:
@@ -224,5 +229,5 @@ def test_init_from_yaml():
     with NamedTemporaryFile() as tmp:
         tmp.write(content.encode('utf-8'))
         tmp.flush()
-        init_from_yaml(conf, tmp.name, 'diorite')
+        strictconf.yaml.init(conf, [tmp.name], 'diorite')
     assert conf.asor.culex == 345

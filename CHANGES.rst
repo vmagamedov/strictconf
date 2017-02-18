@@ -1,13 +1,24 @@
 Changelog
 =========
 
+0.2.dev
+~~~~~~~
+
+Backward-incompatible:
+
+- Refactored project structure, import names were changed
+- Changed signature of functions, used to init config from config files
+
+New features:
+
+- Added support for loading multiple configuration files
+
 0.1.2
 ~~~~~
 
 New features:
 
 - Added support for `typing.Optional` types validation
-
 
 0.1.1
 ~~~~~
