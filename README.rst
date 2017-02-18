@@ -26,7 +26,7 @@ Config definition
     conf = Config()
 
 
-Init using YAML_ format
+Init using yaml_ format
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: yaml
@@ -44,7 +44,7 @@ Init using YAML_ format
     init(conf, ['config.yaml'], 'default')
 
 
-Init using TOML_ format
+Init using toml_ format
 ~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: toml
@@ -91,5 +91,5 @@ Config usage
 
 And be sure that "hours" key exists and it's type is ``int``.
 
-.. _YAML: http://yaml.org
-.. _TOML: https://github.com/toml-lang/toml
+.. _yaml: http://yaml.org
+.. _toml: https://github.com/toml-lang/toml
