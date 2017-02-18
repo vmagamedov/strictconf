@@ -1,5 +1,6 @@
 import sys
-from setuptools import setup
+
+from setuptools import setup, find_packages
 
 PY35 = sys.version_info >= (3, 5)
 
@@ -10,7 +11,7 @@ setup(
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',
     url='https://github.com/vmagamedov/strictconf',
-    py_modules=['strictconf'],
+    packages=find_packages(),
     install_requires=[] if PY35 else ['typing'],
     license='BSD',
 )
