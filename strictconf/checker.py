@@ -28,28 +28,29 @@ class ValidationError(TypeError):
 
 
 def _type_params(type_):
-    # Py3.4 typing module
-    type_params = getattr(type_, '__args__', None)
-    # Py3.5 typing module
-    type_params = type_.__parameters__ if type_params is None else type_params
-    return type_params
+    # typing 3.5.2
+    args = getattr(type_, '__args__', None)
+    # typing 3.5.1
+    args = type_.__parameters__ if args is None else args
+    return args
 
 
 def _optional_type_param(type_):
-    assert len(type_.__union_set_params__) == 2 and \
-        type(None) in type_.__union_set_params__, \
+    # typing 3.5.3
+    args = getattr(type_, '__args__', None)
+    # typing 3.5.2
+    args = type_.__union_params__ if args is None else args
+
+    args_set = set(args)
+    assert len(args_set) == 2 and type(None) in args_set, \
         'Only "Optional" types are supported'
-    return tuple(type_.__union_set_params__ - {type(None)})[0]
+    return tuple(args_set - {type(None)})[0]
 
 
 def _type_repr(t):
     if isinstance(t, typing.TypingMeta):
-        if isinstance(t, typing.UnionMeta):
-            optional_type_param = _optional_type_param(t)
-            return 'Optional[{}]'.format(_type_repr(optional_type_param))
-        else:
-            params_repr = ', '.join(_type_repr(p) for p in _type_params(t))
-            return '{}[{}]'.format(t.__name__, params_repr)
+        params_repr = ', '.join(_type_repr(p) for p in _type_params(t))
+        return '{}[{}]'.format(t.__name__, params_repr)
     else:
         return t.__name__
 
@@ -64,13 +65,21 @@ class TypeChecker(object):
 
     def visit(self, type_):
         value = self.stack[-1]
-        if not issubclass(type(value), type_):
+        # typing 3.5.2
+        if isinstance(type_, typing.TypingMeta):
+            method_name = 'visit_{}'.format(type_.__name__)
+            visit_method = getattr(self, method_name, self.not_implemented)
+            visit_method(type_, value)
+        # typing 3.5.3
+        elif isinstance(type(type_), typing.TypingMeta):
+            full_name = str(type(type_))
+            assert full_name.startswith('typing.'), full_name
+            name = full_name[len('typing.'):]
+            method_name = 'visit_{}'.format(name)
+            visit_method = getattr(self, method_name, self.not_implemented)
+            visit_method(type_, value)
+        elif not isinstance(value, type_):
             self.fail(type_, value)
-        else:
-            if isinstance(type_, typing.TypingMeta):
-                method_name = 'visit_{}'.format(type_.__name__)
-                visit_method = getattr(self, method_name, self.not_implemented)
-                visit_method(type_, value)
 
     def not_implemented(self, type_, value):
         raise TypeError('Type check is not implemented for this type: {!r}'
@@ -100,25 +109,33 @@ class TypeChecker(object):
             self.visit(optional_type_param)
 
     def visit_List(self, type_, value):
-        item_type, = _type_params(type_)
-        for i, item in enumerate(value):
-            with self.push(item, '[{!r}]'.format(i)):
-                self.visit(item_type)
+        if isinstance(value, list):
+            item_type, = _type_params(type_)
+            for i, item in enumerate(value):
+                with self.push(item, '[{!r}]'.format(i)):
+                    self.visit(item_type)
+        else:
+            self.fail(type_, value)
 
     def visit_Dict(self, type_, value):
-        key_type, val_type = _type_params(type_)
-        for key, val in value.items():
-            with self.push(key, '[{!r}]'.format(key)):
-                self.visit(key_type)
-            with self.push(val, '[{!r}]'.format(key)):
-                self.visit(val_type)
+        if isinstance(value, dict):
+            key_type, val_type = _type_params(type_)
+            for key, val in value.items():
+                with self.push(key, '[{!r}]'.format(key)):
+                    self.visit(key_type)
+                with self.push(val, '[{!r}]'.format(key)):
+                    self.visit(val_type)
+        else:
+            self.fail(type_, value)
 
 
 def validate_type(ctx, value, type_, errors):
-    if issubclass(type(value), type_):
-        if isinstance(type_, typing.TypingMeta):
-            TypeChecker(ctx, value, errors).visit(type_)
-        return
+    if (
+        isinstance(type_, type)  # simple types
+        or isinstance(type_, typing.TypingMeta)  # typing 3.5.2
+        or isinstance(type(type_), typing.TypingMeta)  # typing 3.5.3
+    ):
+        TypeChecker(ctx, value, errors).visit(type_)
     else:
         message = ('"{}" instead of "{}"'
                    .format(_type_repr(type(value)), _type_repr(type_)))

@@ -119,7 +119,7 @@ def test_optional_type():
     check_type(Optional[List[int]], [1, 2, 3], [])
     # invalid
     check_type(Optional[int], '5', [
-        '"str" instead of "Optional[int]"',
+        '"str" instead of "int"',
     ])
     check_type(Optional[List[int]], [1, 2, '3'], [
         '[2] - "str" instead of "int"',
