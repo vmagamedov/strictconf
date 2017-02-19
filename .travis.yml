@@ -12,6 +12,8 @@ env:
 matrix:
   include:
   - python: '3.5'
+    env: TYPING_VERSION=SELF
   - python: '3.6'
+    env: TYPING_VERSION=SELF
 install: pip install tox-travis
 script: tox
