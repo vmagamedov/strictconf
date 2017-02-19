@@ -18,6 +18,7 @@ class NotInitialized(object):
 
 class SectionBase(object):
     __keys__ = {}  # type: typing.Dict[str, Key]
+    __descriptors__ = {}
 
     def __init__(self, name):
         self.__section_name__ = name
@@ -28,8 +29,11 @@ class SectionMeta(type):
     def __new__(mcs, name, bases, params):
         keys = {key: val for key, val in params.items()
                 if isinstance(val, Key)}
+        descriptors = {key: val for key, val in params.items()
+                       if getattr(val, '__get__', None) is not None}
         cls = super(SectionMeta, mcs).__new__(mcs, name, bases, params)
         cls.__keys__ = dict(cls.__keys__, **keys)
+        cls.__descriptors__ = dict(cls.__descriptors__, **descriptors)
 
         not_initialized = NotInitialized()
         for attr_name in keys:
@@ -47,6 +51,17 @@ class SectionValue(object):
     def __init__(self, section, value):
         for attr_name, key in section.__keys__.items():
             setattr(self, attr_name, value[key.name])
+        self.__section = section
+        self.__descriptors = section.__descriptors__
+
+    def __getattr__(self, name):
+        if name in self.__descriptors:
+            value = self.__descriptors[name].__get__(self, self.__class__)
+        else:
+            value = getattr(self.__section, name)
+        # caching
+        setattr(self, name, value)
+        return value
 
 
 class ComposeBase(object):
@@ -74,3 +89,16 @@ class ComposeMeta(type):
 
 class Compose(with_metaclass(ComposeMeta, ComposeBase)):
     pass
+
+
+class key_property(object):
+
+    def __init__(self, func):
+        self.__doc__ = getattr(func, '__doc__')
+        self.func = func
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        value = instance.__dict__[self.func.__name__] = self.func(instance)
+        return value

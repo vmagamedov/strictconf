@@ -10,7 +10,7 @@ import strictconf.data
 import strictconf.toml
 import strictconf.yaml
 
-from strictconf import Compose, Section, Key
+from strictconf import Compose, Section, Key, key_property
 from strictconf.config import SectionValue
 from strictconf.compat import text_type
 from strictconf.checker import Error, validate, Context, validate_type
@@ -19,9 +19,29 @@ from strictconf.checker import Error, validate, Context, validate_type
 class ParmaSection(Section):
     culex = Key('chatty', int)  # type: int
 
+    swatter = 42
+
+    @key_property
+    def scear(self):
+        return self.culex + 1
+
+    def ostraka(self):
+        return self.culex + 2
+
 
 class PinyonConfig(Compose):
     asor = ParmaSection('parma')
+
+    @key_property
+    def yalu(self):
+        return self.asor.culex + 3
+
+    @key_property
+    def kennels(self):
+        return self.asor.scear + 4
+
+    def shylock(self):
+        return self.asor.ostraka() + 5
 
 
 def _fix_errors(errors):
@@ -231,3 +251,23 @@ def test_yaml_init():
         tmp.flush()
         strictconf.yaml.init(conf, [tmp.name], 'diorite')
     assert conf.asor.culex == 345
+
+
+def test_key_property():
+    conf = PinyonConfig()
+    data = {
+        'parma.gape': {
+            'chatty': 123,
+        },
+        'compose.bedead': {
+            'parma': 'gape',
+        }
+    }
+    strictconf.data.init(conf, data, 'bedead')
+
+    assert conf.asor.swatter == 42
+    assert conf.asor.scear == conf.asor.culex + 1
+    assert conf.asor.ostraka() == conf.asor.culex + 2
+    assert conf.yalu == conf.asor.culex + 3
+    assert conf.kennels == conf.asor.scear + 4
+    assert conf.shylock() == conf.asor.ostraka() + 5
