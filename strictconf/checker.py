@@ -42,8 +42,9 @@ def _optional_type_param(type_):
     args = type_.__union_params__ if args is None else args
 
     args_set = set(args)
-    assert len(args_set) == 2 and type(None) in args_set, \
-        'Only "Optional" types are supported'
+    if not len(args_set) == 2 or not type(None) in args_set:
+        NotImplementedError('Union types are supported only as Optional type')
+
     return tuple(args_set - {type(None)})[0]
 
 
@@ -82,8 +83,8 @@ class TypeChecker(object):
             self.fail(type_, value)
 
     def not_implemented(self, type_, value):
-        raise TypeError('Type check is not implemented for this type: {!r}'
-                        .format(type_))
+        raise NotImplementedError('Type check is not implemented for this '
+                                  'type: {!r}'.format(type_))
 
     @contextmanager
     def push(self, value, path_element):

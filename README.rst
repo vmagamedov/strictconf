@@ -88,6 +88,26 @@ Config usage
 
 And be sure that ``hours`` key exists and it's type is ``int``.
 
+Key types
+~~~~~~~~~
+
+``strictconf`` uses Python's standard ``typing`` module to describe complex key
+types. Examples:
+
+.. code-block:: python
+
+    from typing import Optional, List, Dict
+
+    class MySection(Section):
+        foo = Key('foo', Optional[int])
+        bar = Key('bar', List[int])
+        baz = Key('baz', Dict[str, int])
+
+        bazinga = Key('bazinga', List[Dict[str, Optional[int]]])
+
+**Note**: ``typing`` and types in Python are very complex and ``strictconf``
+implements only basic type checking, so if key type is not supported by
+``strictconf``, it will raise ``NotImplementedError`` with explanation.
 
 Config layout
 ~~~~~~~~~~~~~
@@ -167,7 +187,7 @@ And instead of converting config's color into enum's color every single time:
 
     assert Color(conf.style.color) is Color.gray
 
-you can instead do this:
+You can instead do this:
 
 .. code-block:: python
 
