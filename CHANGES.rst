@@ -12,6 +12,7 @@ Backward-incompatible:
 New features:
 
 - Added support for loading multiple configuration files
+- Added ``key_property`` decorator to support computable values
 
 0.1.2
 ~~~~~
