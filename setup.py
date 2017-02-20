@@ -6,7 +6,7 @@ PY35 = sys.version_info >= (3, 5)
 
 setup(
     name='StrictConf',
-    version='0.1.2',
+    version='0.2.0',
     description='Configuration library with type-checking',
     author='Vladimir Magamedov',
     author_email='vladimir@magamedov.com',

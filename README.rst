@@ -1,4 +1,4 @@
-``strictconf`` version ``0.2.dev``
+``strictconf`` version ``0.2.0``
 
 Configuration library with type-checking and composition instead of inheritance
 

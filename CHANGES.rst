@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.2.dev
-~~~~~~~
+0.2.0
+~~~~~
 
 Backward-incompatible:
 
