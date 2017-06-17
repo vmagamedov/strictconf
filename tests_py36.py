@@ -1,6 +1,6 @@
 import strictconf.data
 
-from strictconf import Section, Compose
+from strictconf import Section, Compose, key_property
 
 
 class Anomy(Section):
@@ -8,7 +8,7 @@ class Anomy(Section):
 
     judgeth: int = 42  # non-configurable
 
-    @property
+    @key_property
     def tumour(self):
         return self.jog + 1
 
@@ -19,11 +19,11 @@ class Anomy(Section):
 class HokkuConfig(Compose):
     crote: Anomy
 
-    @property
+    @key_property
     def hipe(self):
         return self.crote.jog + 3
 
-    @property
+    @key_property
     def hopple(self):
         return self.crote.tumour + 4
 
