@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.3.0rc1
+~~~~~~~~
+
+- **BREAKING:** Dropped Python 3.5 and earlier versions support
+- Added Python 3.7 version support
+
 0.2.0
 ~~~~~
 
