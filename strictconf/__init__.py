@@ -1,4 +1,4 @@
 from .config import Compose, Section, Key, key_property
+from .checker import validate
 
-__all__ = (Compose.__name__, Section.__name__, Key.__name__,
-           key_property.__name__)
+__all__ = ('Compose', 'Section', 'Key', 'key_property', 'validate')

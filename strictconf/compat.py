@@ -1,6 +1,7 @@
 import sys
 
-PY3 = sys.version_info[0] == 3
+PY3 = sys.version_info > (3, 0)
+PY36 = sys.version_info[:2] >= (3, 6)
 
 if PY3:
     text_type = str

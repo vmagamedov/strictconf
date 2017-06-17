@@ -10,6 +10,8 @@ Configuration library with type-checking and composition instead of inheritance
 Config definition
 ~~~~~~~~~~~~~~~~~
 
+In Python < 3.6:
+
 .. code-block:: python
 
     from strictconf import Compose, Section, Key
@@ -22,6 +24,19 @@ Config definition
 
     conf = Config()
 
+In Python >= 3.6:
+
+.. code-block:: python
+
+    from strictconf import Compose, Section
+
+    class Main(Section):
+        hours: int
+
+    class Config(Compose):
+        main: Main
+
+    conf = Config()
 
 Initialize using yaml_ format
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

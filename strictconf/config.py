@@ -1,6 +1,6 @@
 import typing  # noqa
 
-from .compat import with_metaclass
+from .compat import with_metaclass, PY36
 
 
 class Key(object):
@@ -29,6 +29,12 @@ class SectionMeta(type):
     def __new__(mcs, name, bases, params):
         keys = {key: val for key, val in params.items()
                 if isinstance(val, Key)}
+        if PY36:
+            annotations = params.get('__annotations__', {})
+            for name, type_ in annotations.items():
+                if name not in params:
+                    keys.setdefault(name, Key(name, type_))
+
         descriptors = {key: val for key, val in params.items()
                        if getattr(val, '__get__', None) is not None}
         cls = super(SectionMeta, mcs).__new__(mcs, name, bases, params)
@@ -82,6 +88,12 @@ class ComposeMeta(type):
     def __new__(mcs, name, bases, params):
         sections = {key: val for key, val in params.items()
                     if isinstance(val, Section)}
+        if PY36:
+            annotations = params.get('__annotations__', {})
+            for name, section_type in annotations.items():
+                if name not in params:
+                    sections.setdefault(name, section_type(name))
+
         cls = super(ComposeMeta, mcs).__new__(mcs, name, bases, params)
         cls.__sections__ = dict(cls.__sections__, **sections)
         return cls
