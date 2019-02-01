@@ -1,5 +1,3 @@
-``strictconf`` version ``0.2.0``
-
 Configuration library with type-checking and composition instead of inheritance
 
 .. code-block:: shell
@@ -10,7 +8,7 @@ Configuration library with type-checking and composition instead of inheritance
 Config definition
 ~~~~~~~~~~~~~~~~~
 
-In Python < 3.6:
+Explicit keys and sections definition:
 
 .. code-block:: python
 
@@ -24,7 +22,7 @@ In Python < 3.6:
 
     conf = Config()
 
-In Python >= 3.6:
+Keys and sections definition using type annotations:
 
 .. code-block:: python
 
