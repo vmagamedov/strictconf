@@ -1,15 +1,20 @@
-import typing
-
 from contextlib import contextmanager
 from collections import namedtuple
 
-from .compat import text_type, str_fix
+from .compat import is_type, type_name
 from .config import Section, Compose
 
 
 Context = namedtuple('Context', 'section key')
 
 Error = namedtuple('Error', 'context message')
+
+
+def type_repr(t):
+    if is_type(t):
+        return repr(t)
+    else:
+        return t.__name__
 
 
 class ValidationError(TypeError):
@@ -27,35 +32,6 @@ class ValidationError(TypeError):
             yield ' - {} => {}'.format(ctx, error.message)
 
 
-def _type_params(type_):
-    # typing 3.5.2
-    args = getattr(type_, '__args__', None)
-    # typing 3.5.1
-    args = type_.__parameters__ if args is None else args
-    return args
-
-
-def _optional_type_param(type_):
-    # typing 3.5.3
-    args = getattr(type_, '__args__', None)
-    # typing 3.5.2
-    args = type_.__union_params__ if args is None else args
-
-    args_set = set(args)
-    if not len(args_set) == 2 or not type(None) in args_set:
-        NotImplementedError('Union types are supported only as Optional type')
-
-    return tuple(args_set - {type(None)})[0]
-
-
-def _type_repr(t):
-    if isinstance(t, typing.TypingMeta):
-        params_repr = ', '.join(_type_repr(p) for p in _type_params(t))
-        return '{}[{}]'.format(t.__name__, params_repr)
-    else:
-        return t.__name__
-
-
 class TypeChecker(object):
 
     def __init__(self, ctx, value, errors):
@@ -66,17 +42,8 @@ class TypeChecker(object):
 
     def visit(self, type_):
         value = self.stack[-1]
-        # typing 3.5.2
-        if isinstance(type_, typing.TypingMeta):
-            method_name = 'visit_{}'.format(type_.__name__)
-            visit_method = getattr(self, method_name, self.not_implemented)
-            visit_method(type_, value)
-        # typing 3.5.3
-        elif isinstance(type(type_), typing.TypingMeta):
-            full_name = str(type(type_))
-            assert full_name.startswith('typing.'), full_name
-            name = full_name[len('typing.'):]
-            method_name = 'visit_{}'.format(name)
+        if is_type(type_):
+            method_name = 'visit_{}'.format(type_name(type_))
             visit_method = getattr(self, method_name, self.not_implemented)
             visit_method(type_, value)
         elif not isinstance(value, type_):
@@ -97,21 +64,26 @@ class TypeChecker(object):
             self.stack.pop()
 
     def fail(self, type_, value):
-        provided = _type_repr(type(value))
-        expected = _type_repr(type_)
+        provided = type_repr(type(value))
+        expected = type_repr(type_)
         msg = '"{}" instead of "{}"'.format(provided, expected)
         if self.path:
             msg = '{} - {}'.format(''.join(self.path), msg)
         self.errors.append(Error(self.ctx, msg))
 
     def visit_Union(self, type_, value):
-        optional_type_param = _optional_type_param(type_)
+        args = set(type_.__args__)
+        if not len(args) == 2 or not type(None) in args:
+            raise NotImplementedError('Union types are supported '
+                                      'only as Optional type')
+
         if value is not None:
-            self.visit(optional_type_param)
+            arg = (args - {type(None)}).pop()
+            self.visit(arg)
 
     def visit_List(self, type_, value):
         if isinstance(value, list):
-            item_type, = _type_params(type_)
+            item_type, = type_.__args__
             for i, item in enumerate(value):
                 with self.push(item, '[{!r}]'.format(i)):
                     self.visit(item_type)
@@ -120,7 +92,7 @@ class TypeChecker(object):
 
     def visit_Dict(self, type_, value):
         if isinstance(value, dict):
-            key_type, val_type = _type_params(type_)
+            key_type, val_type = type_.__args__
             for key, val in value.items():
                 with self.push(key, '[{!r}]'.format(key)):
                     self.visit(key_type)
@@ -131,15 +103,11 @@ class TypeChecker(object):
 
 
 def validate_type(ctx, value, type_, errors):
-    if (
-        isinstance(type_, type)  # simple types
-        or isinstance(type_, typing.TypingMeta)  # typing 3.5.2
-        or isinstance(type(type_), typing.TypingMeta)  # typing 3.5.3
-    ):
+    if isinstance(type_, type) or is_type(type_):
         TypeChecker(ctx, value, errors).visit(type_)
     else:
         message = ('"{}" instead of "{}"'
-                   .format(_type_repr(type(value)), _type_repr(type_)))
+                   .format(type_repr(type(value)), type_repr(type_)))
         errors.append(Error(ctx, message))
 
 
@@ -164,7 +132,7 @@ def validate_config(obj, value, variant, sep, errors):
     if errors:
         return
 
-    key = text_type(sep.join(('compose', variant)))
+    key = sep.join(('compose', variant))
     if key not in value:
         errors.append(Error(Context(key, None), 'missing section'))
         return
@@ -182,7 +150,7 @@ def validate_config(obj, value, variant, sep, errors):
             continue
 
         section_variant = compose_section[section.__section_name__]
-        validate_type(ctx, str_fix(section_variant), text_type, errors)
+        validate_type(ctx, section_variant, str, errors)
         if errors:
             continue
 
