@@ -1,9 +1,10 @@
 Changelog
 =========
 
-0.3.0rc1
+0.3.0rc2
 ~~~~~~~~
 
+- Switched to the ``yaml.safe_load``
 - **BREAKING:** Dropped Python 3.5 and earlier versions support
 - Added Python 3.7 version support
 
